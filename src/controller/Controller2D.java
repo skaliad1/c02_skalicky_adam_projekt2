@@ -33,6 +33,7 @@ public class Controller2D {
     private int startX, startY;
     private int dragX, dragY;
     private boolean isDragging = false;
+    private boolean isShiftPressed = false;
 
     private int hoverX, hoverY;
     private final int TOLERANCE = 10;
@@ -69,7 +70,14 @@ public class Controller2D {
             @Override
             public void mouseReleased(MouseEvent e) {
                 if (currentMode == Mode.LINE) {
-                    lines.add(new Line(startX, startY, e.getX(), e.getY(), 0xFFFFFF));
+                    int endX = e.getX();
+                    int endY = e.getY();
+                    if (isShiftPressed) {
+                        Point snapped = Line.snap(startX, startY, endX, endY);
+                        endX = snapped.x;
+                        endY = snapped.y;
+                    }
+                    lines.add(new Line(startX, startY, endX, endY, 0xFFFFFF));
                 } else {
                     polygon.addPoint(e.getX(), e.getY());
                 }
@@ -96,15 +104,22 @@ public class Controller2D {
         panel.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_C) {
+                if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
+                    isShiftPressed = !isShiftPressed;
+                    System.out.println("mod Line - vodorovné, svislé, úhlopříčky: " + (isShiftPressed ? "ZAPNUTO" : "VYPNUTO"));
+                } else if (e.getKeyCode() == KeyEvent.VK_C) {
                     lines.clear();
                     polygon.clear();
+                    System.out.println("celé plátno smazané");
                 } else if (e.getKeyCode() == KeyEvent.VK_L) {
                     currentMode = Mode.LINE;
+                    System.out.println("mod Line");
                 } else if (e.getKeyCode() == KeyEvent.VK_P) {
                     currentMode = Mode.POLYGON;
+                    System.out.println("mod Polygon");
                 } else if (e.getKeyCode() == KeyEvent.VK_X) {
                     deleteElementAt(hoverX, hoverY);
+                    System.out.println("smazání vrcholu");
                 }
                 redrawScene();
             }
@@ -142,7 +157,14 @@ public class Controller2D {
 
         if (isDragging) {
             if (currentMode == Mode.LINE) {
-                rasterizer.rasterize(startX, startY, dragX, dragY, 0xFF0000);
+                int endX = dragX;
+                int endY = dragY;
+                if (isShiftPressed) {
+                    Point snapped = Line.snap(startX, startY, dragX, dragY);
+                    endX = snapped.x;
+                    endY = snapped.y;
+                }
+                rasterizer.rasterize(startX, startY, endX, endY, 0xFF0000);
             } else {
                 int size = polygon.getSize();
                 if (size >= 1) {

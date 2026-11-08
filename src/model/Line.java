@@ -1,5 +1,7 @@
 package model;
 
+import java.awt.Point;
+
 public class Line {
     private int x1, y1, x2, y2;
     private int color;
@@ -12,6 +14,28 @@ public class Line {
         this.color = color;
     }
 
+    public static Point snap(int x1, int y1, int x2, int y2) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+
+        if (dx == 0 && dy == 0) {
+            return new Point(x1, y1);
+        }
+
+        double angle = Math.atan2(dy, dx);
+        double octant = Math.round(angle / (Math.PI / 4.0));
+        double targetAngle = octant * (Math.PI / 4.0);
+
+        double cos = Math.cos(targetAngle);
+        double sin = Math.sin(targetAngle);
+
+        double length = dx * cos + dy * sin;
+
+        int newX = (int) Math.round(x1 + length * cos);
+        int newY = (int) Math.round(y1 + length * sin);
+
+        return new Point(newX, newY);
+    }
 
     public int getX1() {
         return x1;
