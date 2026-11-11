@@ -4,6 +4,7 @@ import model.Line;
 import model.Polygon;
 import rasterizer.LineRasterizer;
 import rasterizer.PolygonRasterizer;
+import rasterizer.SeedFill;
 import view.Panel;
 
 import java.awt.Point;
@@ -11,6 +12,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,7 +20,9 @@ public class Controller2D {
 
     public enum Mode {
         LINE,
-        POLYGON
+        POLYGON,
+        FILL_BOUNDARY,
+        FILL_COLOR
     }
 
     private Panel panel;
@@ -38,6 +42,8 @@ public class Controller2D {
     private int hoverX, hoverY;
     private final int TOLERANCE = 10;
 
+    private BufferedImage fillSnapshot = null;
+
     public Controller2D(Panel panel) {
         this.panel = panel;
         this.rasterizer = new LineRasterizer(panel);
@@ -46,6 +52,7 @@ public class Controller2D {
         this.lines = new ArrayList<>();
         this.polygon = new Polygon();
 
+        panel.clear();
         initListeners();
     }
 
@@ -78,11 +85,28 @@ public class Controller2D {
                         endY = snapped.y;
                     }
                     lines.add(new Line(startX, startY, endX, endY, 0xFFFFFF));
-                } else {
+                    isDragging = false;
+                    redrawScene();
+                } else if (currentMode == Mode.POLYGON) {
                     polygon.addPoint(e.getX(), e.getY());
+                    isDragging = false;
+                    redrawScene();
+                } else if (currentMode == Mode.FILL_BOUNDARY || currentMode == Mode.FILL_COLOR) {
+                    isDragging = false;
+                    redrawScene();
+
+                    SeedFill seedFill = new SeedFill(panel);
+
+                    if (currentMode == Mode.FILL_BOUNDARY) {
+                        seedFill.fillBoundary(e.getX(), e.getY());
+                        System.out.println("SeedFill (Omezení hranicí) spuštěn");
+                    } else {
+                        seedFill.fillFlood(e.getX(), e.getY());
+                        System.out.println("FloodFill (Omezení pozadím) spuštěn");
+                    }
+                    fillSnapshot = panel.createSnapshot();
+                    panel.repaint();
                 }
-                isDragging = false;
-                redrawScene();
             }
         });
 
@@ -93,7 +117,6 @@ public class Controller2D {
                 dragY = e.getY();
                 redrawScene();
             }
-
             @Override
             public void mouseMoved(MouseEvent e) {
                 hoverX = e.getX();
@@ -110,18 +133,27 @@ public class Controller2D {
                 } else if (e.getKeyCode() == KeyEvent.VK_C) {
                     lines.clear();
                     polygon.clear();
+                    fillSnapshot = null;
+                    panel.clear();
                     System.out.println("celé plátno smazané");
+                    panel.repaint();
                 } else if (e.getKeyCode() == KeyEvent.VK_L) {
                     currentMode = Mode.LINE;
                     System.out.println("mod Line");
                 } else if (e.getKeyCode() == KeyEvent.VK_P) {
                     currentMode = Mode.POLYGON;
                     System.out.println("mod Polygon");
+                } else if (e.getKeyCode() == KeyEvent.VK_F) {
+                    currentMode = Mode.FILL_BOUNDARY;
+                    System.out.println("mod Fill - Omezení hranicí (Boundary Fill)");
+                } else if (e.getKeyCode() == KeyEvent.VK_G) {
+                    currentMode = Mode.FILL_COLOR;
+                    System.out.println("mod Fill - Omezení pozadím (Flood Fill)");
                 } else if (e.getKeyCode() == KeyEvent.VK_X) {
                     deleteElementAt(hoverX, hoverY);
                     System.out.println("smazání vrcholu");
+                    redrawScene();
                 }
-                redrawScene();
             }
         });
     }
@@ -132,10 +164,10 @@ public class Controller2D {
             Point p = points.get(i);
             if (Math.hypot(p.x - x, p.y - y) <= TOLERANCE) {
                 polygon.removePointAt(i);
+                fillSnapshot = null;
                 return;
             }
         }
-
         for (int i = 0; i < lines.size(); i++) {
             Line l = lines.get(i);
             if (Math.hypot(l.getX1() - x, l.getY1() - y) <= TOLERANCE ||
@@ -149,10 +181,12 @@ public class Controller2D {
     private void redrawScene() {
         panel.clear();
 
+        if (fillSnapshot != null) {
+            panel.restoreSnapshot(fillSnapshot);
+        }
         for (Line line : lines) {
             rasterizer.rasterize(line.getX1(), line.getY1(), line.getX2(), line.getY2(), line.getColor());
         }
-
         polygonRasterizer.rasterize(polygon, 0xFFFFFF);
 
         if (isDragging) {
@@ -165,7 +199,7 @@ public class Controller2D {
                     endY = snapped.y;
                 }
                 rasterizer.rasterize(startX, startY, endX, endY, 0xFF0000);
-            } else {
+            } else if (currentMode == Mode.POLYGON) {
                 int size = polygon.getSize();
                 if (size >= 1) {
                     Point last = polygon.getPoints().get(size - 1);
@@ -178,7 +212,6 @@ public class Controller2D {
                 }
             }
         }
-
         panel.repaint();
     }
 }
