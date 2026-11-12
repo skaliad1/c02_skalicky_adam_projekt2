@@ -4,6 +4,7 @@ import model.Line;
 import model.Polygon;
 import rasterizer.LineRasterizer;
 import rasterizer.PolygonRasterizer;
+import rasterizer.ScanLineFill;
 import rasterizer.SeedFill;
 import view.Panel;
 
@@ -22,7 +23,8 @@ public class Controller2D {
         LINE,
         POLYGON,
         FILL_BOUNDARY,
-        FILL_COLOR
+        FILL_COLOR,
+        SCAN_LINE
     }
 
     private Panel panel;
@@ -106,6 +108,16 @@ public class Controller2D {
                     }
                     fillSnapshot = panel.createSnapshot();
                     panel.repaint();
+                } else if (currentMode == Mode.SCAN_LINE) {
+                    isDragging = false;
+                    redrawScene();
+
+                    ScanLineFill scanLineFill = new ScanLineFill(panel);
+                    scanLineFill.fill(polygon, 0x00FF00, 0xFFFFFF);
+                    System.out.println("Scan Line výplň spuštěna");
+
+                    fillSnapshot = panel.createSnapshot();
+                    panel.repaint();
                 }
             }
         });
@@ -149,6 +161,9 @@ public class Controller2D {
                 } else if (e.getKeyCode() == KeyEvent.VK_G) {
                     currentMode = Mode.FILL_COLOR;
                     System.out.println("mod Fill - Omezení pozadím (Flood Fill)");
+                } else if (e.getKeyCode() == KeyEvent.VK_S) {
+                    currentMode = Mode.SCAN_LINE;
+                    System.out.println("mod Scan Line (výplň)");
                 } else if (e.getKeyCode() == KeyEvent.VK_X) {
                     deleteElementAt(hoverX, hoverY);
                     System.out.println("smazání vrcholu");
