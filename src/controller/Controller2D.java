@@ -7,6 +7,7 @@ import rasterizer.LineRasterizer;
 import rasterizer.PolygonRasterizer;
 import rasterizer.ScanLineFill;
 import rasterizer.SeedFill;
+import rasterizer.SutherlandHodgman;
 import view.Panel;
 
 import java.awt.Point;
@@ -27,7 +28,8 @@ public class Controller2D {
         FILL_BOUNDARY,
         FILL_COLOR,
         SCAN_LINE,
-        EDIT_CLIP
+        EDIT_CLIP,
+        CLIP_POLYGON
     }
 
     private Panel panel;
@@ -36,9 +38,11 @@ public class Controller2D {
 
     private List<Line> lines;
     private Polygon polygon;
+    private Polygon clipPolygon;
 
     private Rectangle clipWindow = new Rectangle(150, 100, 300, 200);
     private boolean isClippingEnabled = false;
+    private boolean isPolygonClippingEnabled = false;
 
     private Mode currentMode = Mode.LINE;
 
@@ -59,6 +63,7 @@ public class Controller2D {
 
         this.lines = new ArrayList<>();
         this.polygon = new Polygon();
+        this.clipPolygon = new Polygon();
 
         panel.clear();
         initListeners();
@@ -78,6 +83,8 @@ public class Controller2D {
 
                 if (currentMode == Mode.POLYGON && polygon.getSize() == 0) {
                     polygon.addPoint(startX, startY);
+                } else if (currentMode == Mode.CLIP_POLYGON && clipPolygon.getSize() == 0) {
+                    clipPolygon.addPoint(startX, startY);
                 }
                 isDragging = true;
             }
@@ -101,6 +108,11 @@ public class Controller2D {
                     polygon.addPoint(endX, endY);
                     redrawScene();
                 }
+                else if (currentMode == Mode.CLIP_POLYGON) {
+                    clipPolygon.addPoint(endX, endY);
+                    isPolygonClippingEnabled = true;
+                    redrawScene();
+                }
                 else if (currentMode == Mode.EDIT_CLIP) {
                     int x = Math.min(startX, endX);
                     int y = Math.min(startY, endY);
@@ -109,7 +121,6 @@ public class Controller2D {
 
                     if (width > 5 && height > 5) {
                         clipWindow.setBounds(x, y, width, height);
-                        System.out.println("Ořezávací okno upraveno:" + clipWindow);
                     }
                     redrawScene();
                 }
@@ -117,10 +128,8 @@ public class Controller2D {
                     SeedFill seedFill = new SeedFill(panel);
                     if (currentMode == Mode.FILL_BOUNDARY) {
                         seedFill.fillBoundary(endX, endY);
-                        System.out.println("SeedFill spuštěn");
                     } else {
                         seedFill.fillFlood(endX, endY);
-                        System.out.println("FloodFill spuštěn");
                     }
                     fillSnapshot = panel.createSnapshot();
                     panel.repaint();
@@ -129,7 +138,6 @@ public class Controller2D {
                 else if (currentMode == Mode.SCAN_LINE) {
                     ScanLineFill scanLineFill = new ScanLineFill(panel);
                     scanLineFill.fill(polygon, 0x00FF00, 0xFFFFFF);
-                    System.out.println("Scan Line výplň spuštěna");
                     fillSnapshot = panel.createSnapshot();
                     panel.repaint();
                     redrawScene();
@@ -156,37 +164,34 @@ public class Controller2D {
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
                     isShiftPressed = !isShiftPressed;
-                    System.out.println("mod Line - svislé/vodorovné: " + (isShiftPressed ? "ZAPNUTO" : "VYPNUTO"));
                 } else if (e.getKeyCode() == KeyEvent.VK_C) {
                     lines.clear();
                     polygon.clear();
+                    clipPolygon.clear();
+                    isPolygonClippingEnabled = false;
                     fillSnapshot = null;
                     panel.clear();
-                    System.out.println("Plátno vymazáno");
                     panel.repaint();
                 } else if (e.getKeyCode() == KeyEvent.VK_L) {
                     currentMode = Mode.LINE;
-                    System.out.println("Režim: Úsečka");
                 } else if (e.getKeyCode() == KeyEvent.VK_P) {
                     currentMode = Mode.POLYGON;
-                    System.out.println("Režim: Polygon");
+                } else if (e.getKeyCode() == KeyEvent.VK_O) {
+                    isPolygonClippingEnabled = !isPolygonClippingEnabled;
+                    currentMode = Mode.CLIP_POLYGON;
+                    redrawScene();
                 } else if (e.getKeyCode() == KeyEvent.VK_F) {
                     currentMode = Mode.FILL_BOUNDARY;
-                    System.out.println("Režim: Boundary Fill");
                 } else if (e.getKeyCode() == KeyEvent.VK_G) {
                     currentMode = Mode.FILL_COLOR;
-                    System.out.println("Režim: Flood Fill");
                 } else if (e.getKeyCode() == KeyEvent.VK_S) {
                     currentMode = Mode.SCAN_LINE;
-                    System.out.println("Režim: Scan Line výplň");
                 } else if (e.getKeyCode() == KeyEvent.VK_E) {
                     isClippingEnabled = !isClippingEnabled;
                     currentMode = Mode.EDIT_CLIP;
-                    System.out.println("Ořezávací okno (Cohen-Sutherland): " + (isClippingEnabled ? "ZAPNUTO (lze upravit myší)" : "VYPNUTO"));
                     redrawScene();
                 } else if (e.getKeyCode() == KeyEvent.VK_X) {
                     deleteElementAt(hoverX, hoverY);
-                    System.out.println("Smazaný vrchol");
                     redrawScene();
                 }
             }
@@ -200,6 +205,14 @@ public class Controller2D {
             if (Math.hypot(p.x - x, p.y - y) <= TOLERANCE) {
                 polygon.removePointAt(i);
                 fillSnapshot = null;
+                return;
+            }
+        }
+        List<Point> clipPoints = clipPolygon.getPoints();
+        for (int i = 0; i < clipPoints.size(); i++) {
+            Point p = clipPoints.get(i);
+            if (Math.hypot(p.x - x, p.y - y) <= TOLERANCE) {
+                clipPolygon.removePointAt(i);
                 return;
             }
         }
@@ -236,7 +249,24 @@ public class Controller2D {
             drawClipWindow();
         }
 
-        polygonRasterizer.rasterize(polygon, 0xFFFFFF);
+        if (isPolygonClippingEnabled && clipPolygon.getSize() >= 3) {
+            List<Point> clippedPoints = SutherlandHodgman.clipPolygon(polygon.getPoints(), clipPolygon.getPoints());
+            Polygon clippedPolygonObj = new Polygon();
+            for (Point p : clippedPoints) {
+                clippedPolygonObj.addPoint(p.x, p.y);
+            }
+            polygonRasterizer.rasterize(clippedPolygonObj, 0xFFFFFF);
+            polygonRasterizer.rasterize(clipPolygon, 0xAAAAAA);
+        } else {
+            polygonRasterizer.rasterize(polygon, 0xFFFFFF);
+
+            List<Point> clipPoints = clipPolygon.getPoints();
+            for (int i = 0; i < clipPoints.size() - 1; i++) {
+                Point p1 = clipPoints.get(i);
+                Point p2 = clipPoints.get(i + 1);
+                rasterizer.rasterize(p1.x, p1.y, p2.x, p2.y, 0xAAAAAA);
+            }
+        }
 
         if (isDragging) {
             if (currentMode == Mode.LINE) {
@@ -257,6 +287,17 @@ public class Controller2D {
                     if (size >= 2) {
                         Point first = polygon.getPoints().get(0);
                         rasterizer.rasterize(dragX, dragY, first.x, first.y, 0xFF0000);
+                    }
+                }
+            } else if (currentMode == Mode.CLIP_POLYGON) {
+                int size = clipPolygon.getSize();
+                if (size >= 1) {
+                    Point last = clipPolygon.getPoints().get(size - 1);
+                    rasterizer.rasterize(last.x, last.y, dragX, dragY, 0x00FFFF);
+
+                    if (size >= 2) {
+                        Point first = clipPolygon.getPoints().get(0);
+                        rasterizer.rasterize(dragX, dragY, first.x, first.y, 0x00FFFF);
                     }
                 }
             } else if (currentMode == Mode.EDIT_CLIP && isClippingEnabled) {
