@@ -29,7 +29,8 @@ public class Controller2D {
         FILL_COLOR,
         SCAN_LINE,
         EDIT_CLIP,
-        CLIP_POLYGON
+        CLIP_POLYGON,
+        FILL_PATTERN
     }
 
     private Panel panel;
@@ -135,6 +136,13 @@ public class Controller2D {
                     panel.repaint();
                     redrawScene();
                 }
+                else if (currentMode == Mode.FILL_PATTERN) {
+                    SeedFill seedFill = new SeedFill(panel);
+                    seedFill.fillPatternBoundary(endX, endY);
+                    fillSnapshot = panel.createSnapshot();
+                    panel.repaint();
+                    redrawScene();
+                }
                 else if (currentMode == Mode.SCAN_LINE) {
                     ScanLineFill scanLineFill = new ScanLineFill(panel);
                     scanLineFill.fill(polygon, 0x00FF00, 0xFFFFFF);
@@ -191,6 +199,9 @@ public class Controller2D {
                 } else if (e.getKeyCode() == KeyEvent.VK_G) {
                     currentMode = Mode.FILL_COLOR;
                     System.out.println("Režim: Flood Fill");
+                } else if (e.getKeyCode() == KeyEvent.VK_B) {
+                    currentMode = Mode.FILL_PATTERN;
+                    System.out.println("Režim: Vyplnění vzorem (Seed Fill)");
                 } else if (e.getKeyCode() == KeyEvent.VK_S) {
                     currentMode = Mode.SCAN_LINE;
                     System.out.println("Režim: Scan Line výplň");

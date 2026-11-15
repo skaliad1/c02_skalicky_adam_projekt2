@@ -7,9 +7,9 @@ import java.util.Stack;
 public class SeedFill {
     private Panel panel;
 
-    private static final int BOUNDARY_FILL_COLOR = 0xB2AC88; //Hnědá výplň
-    private static final int FLOOD_FILL_COLOR = 0x0000FF; //Modrá výplň
-    private static final int DEFAULT_BOUNDARY_COLOR = 0xFFFFFF; //Bílá hranice
+    private static final int BOUNDARY_FILL_COLOR = 0xB2AC88; // Hnědá výplň
+    private static final int FLOOD_FILL_COLOR = 0x0000FF; // Modrá výplň
+    private static final int DEFAULT_BOUNDARY_COLOR = 0xFFFFFF; // Bílá hranice
 
     public SeedFill(Panel panel) {
         this.panel = panel;
@@ -23,7 +23,6 @@ public class SeedFill {
         fillWithColor(startX, startY, FLOOD_FILL_COLOR);
     }
 
-    //Omezení barvou hranice
     public void fillWithBoundary(int startX, int startY, int fillColor, int boundaryColor) {
         int width = panel.getRaster().getWidth();
         int height = panel.getRaster().getHeight();
@@ -50,6 +49,46 @@ public class SeedFill {
 
             if (currentPixelColor != boundMasked && currentPixelColor != fillMasked) {
                 panel.drawPixel(x, y, fillColor);
+
+                stack.push(new Point(x + 1, y));
+                stack.push(new Point(x - 1, y));
+                stack.push(new Point(x, y + 1));
+                stack.push(new Point(x, y - 1));
+            }
+        }
+    }
+    public void fillPatternBoundary(int startX, int startY) {
+        int width = panel.getRaster().getWidth();
+        int height = panel.getRaster().getHeight();
+
+        if (startX < 0 || startX >= width || startY < 0 || startY >= height) return;
+
+        int startColor = panel.getRaster().getRGB(startX, startY) & 0x00FFFFFF;
+        int boundMasked = DEFAULT_BOUNDARY_COLOR & 0x00FFFFFF;
+
+        if (startColor == boundMasked) return;
+
+        int color1 = 0xFF0000; // Červená
+        int color2 = 0xFFFFFF; // Bílá
+        int c1Mask = color1 & 0x00FFFFFF;
+        int c2Mask = color2 & 0x00FFFFFF;
+
+        Stack<Point> stack = new Stack<>();
+        stack.push(new Point(startX, startY));
+
+        while (!stack.isEmpty()) {
+            Point p = stack.pop();
+            int x = p.x;
+            int y = p.y;
+
+            if (x < 0 || x >= width || y < 0 || y >= height) continue;
+
+            int currentPixelColor = panel.getRaster().getRGB(x, y) & 0x00FFFFFF;
+            int patternColor = ((x / 8 + y / 8) % 2 == 0) ? color1 : color2;
+            int patternMask = patternColor & 0x00FFFFFF;
+
+            if (currentPixelColor != boundMasked && currentPixelColor != c1Mask && currentPixelColor != c2Mask) {
+                panel.drawPixel(x, y, patternColor);
 
                 stack.push(new Point(x + 1, y));
                 stack.push(new Point(x - 1, y));
