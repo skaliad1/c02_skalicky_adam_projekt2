@@ -164,6 +164,7 @@ public class Controller2D {
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
                     isShiftPressed = !isShiftPressed;
+                    System.out.println("mod Line - svislé/vodorovné/úhlopříčné: " + (isShiftPressed ? "ZAPNUTO" : "VYPNUTO"));
                 } else if (e.getKeyCode() == KeyEvent.VK_C) {
                     lines.clear();
                     polygon.clear();
@@ -171,27 +172,36 @@ public class Controller2D {
                     isPolygonClippingEnabled = false;
                     fillSnapshot = null;
                     panel.clear();
+                    System.out.println("Plátno vymazáno");
                     panel.repaint();
                 } else if (e.getKeyCode() == KeyEvent.VK_L) {
                     currentMode = Mode.LINE;
+                    System.out.println("Režim: Úsečka");
                 } else if (e.getKeyCode() == KeyEvent.VK_P) {
                     currentMode = Mode.POLYGON;
+                    System.out.println("Režim: Polygon");
                 } else if (e.getKeyCode() == KeyEvent.VK_O) {
                     isPolygonClippingEnabled = !isPolygonClippingEnabled;
                     currentMode = Mode.CLIP_POLYGON;
+                    System.out.println("Ořez polygonem (Sutherland-Hodgman): " + (isPolygonClippingEnabled ? "ZAPNUTO" : "VYPNUTO"));
                     redrawScene();
                 } else if (e.getKeyCode() == KeyEvent.VK_F) {
                     currentMode = Mode.FILL_BOUNDARY;
+                    System.out.println("Režim: Boundary Fill");
                 } else if (e.getKeyCode() == KeyEvent.VK_G) {
                     currentMode = Mode.FILL_COLOR;
+                    System.out.println("Režim: Flood Fill");
                 } else if (e.getKeyCode() == KeyEvent.VK_S) {
                     currentMode = Mode.SCAN_LINE;
+                    System.out.println("Režim: Scan Line výplň");
                 } else if (e.getKeyCode() == KeyEvent.VK_E) {
                     isClippingEnabled = !isClippingEnabled;
                     currentMode = Mode.EDIT_CLIP;
+                    System.out.println("Ořezávací okno (Cohen-Sutherland): " + (isClippingEnabled ? "ZAPNUTO (lze upravit myší)" : "VYPNUTO"));
                     redrawScene();
                 } else if (e.getKeyCode() == KeyEvent.VK_X) {
                     deleteElementAt(hoverX, hoverY);
+                    System.out.println("Smazaný vrchol");
                     redrawScene();
                 }
             }
