@@ -1,0 +1,1 @@
+Všechna ovládáni jsou v evaluační tabulce.
